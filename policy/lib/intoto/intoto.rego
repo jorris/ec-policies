@@ -18,7 +18,6 @@ package lib.intoto
 
 import rego.v1
 
-# TODO(EC-1773): Confirm the artifact type once the test task implementation is finalized.
 _artifact_type := "application/vnd.in-toto+json"
 
 # statements returns the set of unsigned in-toto statements attached to the
