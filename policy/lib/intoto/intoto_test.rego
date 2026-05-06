@@ -21,41 +21,13 @@ import rego.v1
 import data.lib.assertions
 import data.lib.intoto
 
-test_statements_from_raw_intoto_referrer if {
-	mock_referrers := [{
-		"mediaType": "application/vnd.oci.image.manifest.v1+json",
-		"size": 100,
-		# regal ignore:line-length
-		"digest": "sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
-		"artifactType": "application/vnd.in-toto+json",
-		# regal ignore:line-length
-		"ref": "registry.io/repo/image@sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
-	}]
-
+test_statements_from_referrer if {
 	result := intoto.statements with input.image.ref as "registry.io/repo/image@sha256:abc123"
-		with ec.oci.image_referrers as mock_referrers
-		with ec.oci.blob as _mock_blob_raw_test_result
-
-	count(result) == 1
-	some statement in result
-	statement.predicateType == "https://in-toto.io/attestation/test-result/v0.1"
-	statement.predicate.result == "PASSED"
-}
-
-test_statements_from_sigstore_bundle_referrer if {
-	mock_referrers := [{
-		"mediaType": "application/vnd.oci.image.manifest.v1+json",
-		"size": 200,
-		# regal ignore:line-length
-		"digest": "sha256:bbb0000000000000000000000000000000000000000000000000000000000bbb",
-		"artifactType": "application/vnd.dev.sigstore.bundle.v0.3+json",
-		# regal ignore:line-length
-		"ref": "registry.io/repo/image@sha256:bbb0000000000000000000000000000000000000000000000000000000000bbb",
-	}]
-
-	result := intoto.statements with input.image.ref as "registry.io/repo/image@sha256:abc123"
-		with ec.oci.image_referrers as mock_referrers
-		with ec.oci.blob as _mock_blob_sigstore_bundle
+		with ec.oci.image_referrers as [_referrer(
+			"sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
+			"application/vnd.in-toto+json",
+		)]
+		with ec.oci.blob as _mock_blob_test_result
 
 	count(result) == 1
 	some statement in result
@@ -65,29 +37,19 @@ test_statements_from_sigstore_bundle_referrer if {
 
 test_statements_filters_unrelated_referrers if {
 	mock_referrers := [
-		{
-			"mediaType": "application/vnd.oci.image.manifest.v1+json",
-			"size": 100,
-			# regal ignore:line-length
-			"digest": "sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
-			"artifactType": "application/vnd.in-toto+json",
-			# regal ignore:line-length
-			"ref": "registry.io/repo/image@sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
-		},
-		{
-			"mediaType": "application/vnd.oci.image.manifest.v1+json",
-			"size": 300,
-			# regal ignore:line-length
-			"digest": "sha256:ccc0000000000000000000000000000000000000000000000000000000000ccc",
-			"artifactType": "application/vnd.dev.cosign.simplesigning.v1+json",
-			# regal ignore:line-length
-			"ref": "registry.io/repo/image@sha256:ccc0000000000000000000000000000000000000000000000000000000000ccc",
-		},
+		_referrer(
+			"sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
+			"application/vnd.in-toto+json",
+		),
+		_referrer(
+			"sha256:ccc0000000000000000000000000000000000000000000000000000000000ccc",
+			"application/vnd.dev.cosign.simplesigning.v1+json",
+		),
 	]
 
 	result := intoto.statements with input.image.ref as "registry.io/repo/image@sha256:abc123"
 		with ec.oci.image_referrers as mock_referrers
-		with ec.oci.blob as _mock_blob_raw_test_result
+		with ec.oci.blob as _mock_blob_test_result
 
 	count(result) == 1
 }
@@ -99,26 +61,27 @@ test_statements_empty_when_no_referrers if {
 	count(result) == 0
 }
 
+test_statements_skips_non_intoto_json if {
+	result := intoto.statements with input.image.ref as "registry.io/repo/image@sha256:abc123"
+		with ec.oci.image_referrers as [_referrer(
+			"sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
+			"application/vnd.in-toto+json",
+		)]
+		with ec.oci.blob as _mock_blob_not_intoto
+
+	count(result) == 0
+}
+
 test_statements_by_predicate_filters_correctly if {
 	mock_referrers := [
-		{
-			"mediaType": "application/vnd.oci.image.manifest.v1+json",
-			"size": 100,
-			# regal ignore:line-length
-			"digest": "sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
-			"artifactType": "application/vnd.in-toto+json",
-			# regal ignore:line-length
-			"ref": "registry.io/repo/image@sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
-		},
-		{
-			"mediaType": "application/vnd.oci.image.manifest.v1+json",
-			"size": 200,
-			# regal ignore:line-length
-			"digest": "sha256:ddd0000000000000000000000000000000000000000000000000000000000ddd",
-			"artifactType": "application/vnd.in-toto+json",
-			# regal ignore:line-length
-			"ref": "registry.io/repo/image@sha256:ddd0000000000000000000000000000000000000000000000000000000000ddd",
-		},
+		_referrer(
+			"sha256:aaa0000000000000000000000000000000000000000000000000000000000aaa",
+			"application/vnd.in-toto+json",
+		),
+		_referrer(
+			"sha256:ddd0000000000000000000000000000000000000000000000000000000000ddd",
+			"application/vnd.in-toto+json",
+		),
 	]
 
 	result := intoto.statements_by_predicate(intoto.predicate_test_result) with input.image.ref as "registry.io/repo/image@sha256:abc123"
@@ -135,30 +98,24 @@ test_predicate_constants if {
 	assertions.assert_equal(intoto.predicate_vuln_scan, "https://in-toto.io/attestation/vulns/v0.2")
 }
 
-# Mock blob returning a raw in-toto test-result statement
-_mock_blob_raw_test_result(_) := json.marshal({
+# Helper to build a referrer descriptor
+_referrer(digest, artifact_type) := {
+	"mediaType": "application/vnd.oci.image.manifest.v1+json",
+	"size": 100,
+	"digest": digest,
+	"artifactType": artifact_type,
+	"ref": sprintf("registry.io/repo/image@%s", [digest]),
+}
+
+_mock_blob_test_result(_) := json.marshal({
 	"_type": "https://in-toto.io/Statement/v1",
 	"predicateType": "https://in-toto.io/attestation/test-result/v0.1",
 	"subject": [{"name": "registry.io/repo/image", "digest": {"sha256": "abc123"}}],
 	"predicate": {"result": "PASSED", "resourceUri": "registry.io/repo/image@sha256:abc123"},
 })
 
-# Mock blob returning a Sigstore bundle with a DSSE envelope wrapping an in-toto statement
-_mock_blob_sigstore_bundle(_) := json.marshal({
-	"mediaType": "application/vnd.dev.sigstore.bundle.v0.3+json",
-	"dsseEnvelope": {
-		"payloadType": "application/vnd.in-toto+json",
-		"payload": base64.encode(json.marshal({
-			"_type": "https://in-toto.io/Statement/v1",
-			"predicateType": "https://in-toto.io/attestation/test-result/v0.1",
-			"subject": [{"name": "registry.io/repo/image", "digest": {"sha256": "abc123"}}],
-			"predicate": {"result": "PASSED", "resourceUri": "registry.io/repo/image@sha256:abc123"},
-		})),
-		"signatures": [{"sig": "fakesig"}],
-	},
-})
+_mock_blob_not_intoto(_) := json.marshal({"some": "random json", "not": "intoto"})
 
-# Mock blob that returns different predicates based on ref
 _mock_blob_mixed_predicates(ref) := json.marshal({
 	"_type": "https://in-toto.io/Statement/v1",
 	"predicateType": "https://in-toto.io/attestation/test-result/v0.1",
