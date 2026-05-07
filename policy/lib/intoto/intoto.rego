@@ -28,6 +28,8 @@ statements contains statement if {
 	referrer.artifactType == _artifact_type
 	blob := ec.oci.blob(referrer.ref)
 	statement := json.unmarshal(blob)
+
+	# regal ignore:leaked-internal-reference
 	statement._type == "https://in-toto.io/Statement/v1"
 }
 
